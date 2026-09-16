@@ -1,5 +1,207 @@
 # React2
 
+## 3주차 (2026-09-16)
+
+*Next.js 메타데이터, 컴포넌트 계층 및 중첩 라우트 그룹*
+
+---
+
+### 1. Open Graph Protocol (오픈 그래프 프로토콜)
+
+웹사이트 링크를 SNS(페이스북, 인스타그램, X/트위터, 카카오톡 등)나 메신저에 공유할 때 시각적인 **미리보기 카드(링크 프리뷰)**를 생성하기 위한 웹 표준 프로토콜입니다.
+
+### 🔹 주요 특징
+- **표준화 주도**: 페이스북(현 Meta)이 주도하여 정립한 규칙으로 대부분의 SNS 플랫폼에서 널리 활용됩니다.
+- **플랫폼별 렌더링**: 플랫폼마다 지원 태그 범위나 표시 레이아웃에 일부 차이가 있을 수 있습니다.
+- **선언 위치**: 웹 문서 `<head>` 내부의 `<meta>` 태그로 작성합니다.
+
+### 🔹 기본 메타 태그 예시
+```html
+<head>
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://example.com/page.html" />
+  <meta property="og:title" content="페이지 제목" />
+  <meta property="og:description" content="페이지 요약 설명" />
+  <meta property="og:image" content="https://example.com/image.jpg" />
+  <meta property="og:site_name" content="서비스 이름" />
+  <meta property="og:locale" content="ko_KR" />
+</head>
+```
+
+### 🔹 핵심 속성(Property) 요약
+| 속성 (Property) | 역할 | 설명 |
+| :--- | :--- | :--- |
+| **`og:type`** | 콘텐츠 유형 | 웹 문서의 유형 (`website`, `article` 등) |
+| **`og:url`** | 표준 URL | 검색 및 공유 기준이 되는 고유 웹 주소 |
+| **`og:title`** | 미리보기 제목 | 카드 최상단에 강조 노출되는 제목 |
+| **`og:description`** | 요약 설명 | 제목 아래 노출되는 간략한 설명 문구 |
+| **`og:image`** | 대표 이미지 | 카드에 표시될 썸네일 이미지 절대 경로 |
+| **`og:site_name`** | 서비스명 | 개별 페이지를 아우르는 브랜드/웹사이트 이름 |
+| **`og:locale`** | 로케일 | 문서의 표준 언어 및 국가 코드 (예: `ko_KR`) |
+
+---
+
+### 2. Component Hierarchy (컴포넌트 계층 구조)
+
+Next.js App Router의 동일 세그먼트(디렉터리) 내에 위치하는 예약어 파일들은 렌더링 시 **React 컴포넌트 트리 형태로 바깥쪽에서 안쪽으로 자동 중첩(Wrapping)**됩니다.
+
+### 🔹 중첩 순서 다이어그램
+```text
+<Layout>
+  <Template>
+    <ErrorBoundary fallback={<Error />}>
+      <Suspense fallback={<Loading />}>
+        <ErrorBoundary fallback={<NotFound />}>
+          <Page />  <!-- 또는 병렬 라우트 fallback UI인 <Default /> -->
+        </ErrorBoundary>
+      </Suspense>
+    </ErrorBoundary>
+  </Template>
+</Layout>
+```
+
+### 🔹 예약어 파일별 역할 및 특징
+| 파일명 | 컴포넌트 트리 역할 | 상세 설명 |
+| :--- | :--- | :--- |
+| **`layout.js`** | `<Layout>` | 세그먼트 최상위 공통 UI. 라우트 이동 시 상태를 유지하며 리렌더링되지 않음 |
+| **`template.js`** | `<Template>` | `layout`과 유사하나 라우트 이동 시마다 새 인스턴스를 생성하여 상태가 초기화됨 |
+| **`error.js`** | `<ErrorBoundary fallback={<Error />}>` | 하위 트리의 런타임 에러를 포착하는 React Error Boundary (`'use client'` 필수) |
+| **`loading.js`** | `<Suspense fallback={<Loading />}>` | React Suspense 기반 로딩 UI. 비동기 데이터 fetching 중 즉각 표시 |
+| **`not-found.js`** | `<ErrorBoundary fallback={<NotFound />}>`| `notFound()` 함수 호출 또는 일치하지 않는 경로 방문 시 표시되는 404 UI |
+| **`page.js`** | `<Page>` | 해당 라우트 세그먼트의 본문이 표시되는 핵심 UI 컴포넌트 |
+| **`default.js`** | `<Default>` | 병렬 라우트(Parallel Routes) 사용 시 슬롯 상태 복원 실패 시 대체 렌더링되는 UI |
+
+---
+
+### 3. Layout vs Template 상세 비교
+
+`layout.js`와 `template.js`는 하위 페이지를 감싸는 래퍼(Wrapper)이지만 **라우트 전환 시 컴포넌트 인스턴스 재생성 여부와 State 유지 방식**에서 중요한 차이가 있습니다.
+
+### 🔹 핵심 차이점 비교표
+| 비교 항목 | `layout.js` (기본 권장) | `template.js` |
+| :--- | :--- | :--- |
+| **컴포넌트 인스턴스** | 유지됨 (마운트 상태 지속) | **라우트 이동 시마다 매번 새로 생성** (언마운트 후 재마운트) |
+| **React State 유지 여부** | 하위 페이지 이동 시 내부 **State 유지** | 하위 페이지 이동 시 내부 **State 초기화** |
+| **DOM 리렌더링** | 변경된 하위 페이지만 교체 | 감싸고 있는 템플릿 DOM 전체를 다시 그림 |
+| **`useEffect` 실행** | 최초 렌더링 시 1회만 실행 | **페이지를 이동할 때마다 `useEffect` 재실행** |
+| **주요 사용 사례** | 전역 헤더, 네비게이션 바, 사이드바, 푸터 | 페이지 진입 전환 애니메이션, 방문 통계 로깅, 폼 입력 초기화 |
+
+---
+
+### 4. Route Groups (라우트 그룹)
+
+소괄호 `(folderName)` 형식을 사용하여 **URL 경로에 영향을 주지 않고** 디렉터리와 레이아웃을 논리적으로 그룹화하는 기법입니다.
+
+### 🔹 주요 목적 및 장점
+- **URL 클린화**: 디렉터리 이름이 URL 세그먼트에서 완전히 제외됩니다.
+  - 예: `src/app/(marketing)/about/page.tsx` ➔ `http://localhost:3000/about`
+- **레이아웃 분리**: 서비스 영역별(예: 일반 사용자용 `(marketing)`, 관리자 전용 `(admin)`)로 서로 다른 레이아웃을 독립적으로 적용할 수 있습니다.
+
+---
+
+### 5. 다중 중첩 레이아웃 실습 (Nested Layouts)
+
+루트 레이아웃부터 라우트 그룹 레이아웃, 세부 페이지 전용 레이아웃까지 3단계로 중첩되어 감싸지는 실제 실습 아키텍처입니다.
+
+### 🔹 디렉터리 및 파일 구조
+```text
+src/app/
+├── (marketing)/
+│   ├── layout.tsx         # [Marketing] 그룹 공통 레이아웃
+│   ├── about/
+│   │   ├── layout.tsx     # [About] 전용 추가 레이아웃
+│   │   └── page.tsx       # About 본문 페이지 (URL: /about)
+│   └── blog/
+│       └── page.tsx       # Blog 본문 페이지 (URL: /blog)
+├── layout.tsx             # 루트 최상위 레이아웃
+└── page.tsx               # 루트 홈 페이지 (URL: /)
+```
+
+### 🔹 레이아웃 및 페이지 코드 구현
+
+#### ① 루트 최상위 레이아웃 (`src/app/layout.tsx`)
+```tsx
+import React from 'react';
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ko">
+      <body>
+        <header>Root Layout Header</header>
+        {children}
+        <footer>Root Layout Footer</footer>
+      </body>
+    </html>
+  );
+}
+```
+
+#### ② 마케팅 그룹 레이아웃 (`src/app/(marketing)/layout.tsx`)
+최상위가 아닌 하위 레이아웃에는 `<html>`, `<body>` 태그를 작성하지 않고 감싸는 컨테이너 형태로 작성합니다.
+
+```tsx
+import React from 'react';
+
+export default function MarketingLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div>Marketing Layout Header</div>
+      {children}
+      <div>Marketing Layout Footer</div>
+    </div>
+  );
+}
+```
+
+#### ③ About 전용 레이아웃 (`src/app/(marketing)/about/layout.tsx`)
+```tsx
+import React from 'react';
+
+export default function AboutLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div>About Layout Header</div>
+      {children}
+      <div>About Layout Footer</div>
+    </div>
+  );
+}
+```
+
+#### ④ About 본문 페이지 (`src/app/(marketing)/about/page.tsx`)
+```tsx
+export default function AboutPage() {
+  return <div>About 페이지</div>;
+}
+```
+
+### 🔹 최종 브라우저 렌더링 결과 (`/about`)
+브라우저에서 `http://localhost:3000/about` 접속 시 바깥쪽 레이아웃부터 안쪽으로 차례대로 래핑되어 출력됩니다:
+
+```text
+Root Layout Header
+Marketing Layout Header
+About Layout Header
+About 페이지
+About Layout Footer
+Marketing Layout Footer
+Root Layout Footer
+```
+
+---
+
 ## 2주차 (2026-09-09)
 
 *Next.js 수동 세팅, 환경 구성 및 파일 시스템 라우팅*
@@ -12,6 +214,8 @@ Next.js의 내부 구동 원리와 필수 구성 요소를 이해하기 위해 C
 
 ### 🔹 프로젝트 초기화 및 핵심 라이브러리 설치
 ```bash
+pnpm create next-app@latest
+
 # 실습용 디렉터리 생성 및 이동
 mkdir foo
 cd foo
