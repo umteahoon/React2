@@ -1,5 +1,380 @@
 # React2 202230119 엄태훈
 
+## 4주차 (2026-09-23)
+
+*Next.js 레이아웃 구성, 동적 라우트 [slug], 쿼리 스트링 및 Link 내비게이션*
+
+---
+
+### 1. Creating a layout (레이아웃 만들기)
+
+Next.js App Router에서 애플리케이션의 화면 구조를 잡을 때 적용되는 기본 규칙과 명명 관례입니다.
+
+### 🔹 레이아웃 구성 필수 원칙
+- **RootLayout 컴포넌트는 필수**: 프로젝트 최상위 루트(`app/layout.tsx` 또는 `src/app/layout.tsx`)에는 전체 애플리케이션을 감싸는 **`RootLayout`이 반드시 존재**해야 합니다. 최상위 레이아웃은 `<html>`과 `<body>` 태그를 필수로 포함해야 합니다.
+- **서브페이지 레이아웃은 선택 사항**: 특정 경로 하위의 서브 레이아웃(`app/blog/layout.tsx` 등)은 필요하지 않다면 **생략해도 무방**합니다. (하위 레이아웃이 없으면 자동으로 상위 `RootLayout`만 적용됩니다.)
+- **컴포넌트 명명 권장 (`RootLayout`)**: 공식 문서 예제 등에서 최상위 레이아웃을 `DashboardLayout` 등으로 표현하는 경우가 있으나, 특별한 이유가 없다면 **`RootLayout`으로 명명**하는 것이 표준 관례상 좋습니다.
+- **명명 이유**: 문서 예시에서는 특정 대시보드 디렉터리를 가리킬 수 있지만, 최상위 레이아웃은 결국 **전체 라우팅 페이지를 아우르는 공통 틀**이기 때문에 명확하게 `RootLayout`으로 명명하는 것이 권장됩니다.
+
+---
+
+### 2. Creating a nested route (중첩 라우트 만들기)
+
+중첩 라우트(Nested route)는 **다중 URL 세그먼트(Segments)**로 구성된 라우트입니다.
+
+> 📌 **URL Segment란?**  
+> URL에서 슬래시(`/`) 단위로 나뉘어 특정 리소스 경로를 구성하는 각 분할 영역을 의미합니다.
+
+### 🔹 URL 세그먼트 계층 구조 예시 (`/blog/[slug]`)
+세 개의 세그먼트로 구성된 경로 예시:
+- **`/`** : Root Segment (최상위 루트)
+- **`blog`** : Segment (일반 세그먼트)
+- **`[slug]`** : Leaf Segment (트리의 맨 끝 리프 세그먼트)
+
+### 🔹 Next.js에서의 중첩 라우트 매핑 원리
+- **폴더 = URL 세그먼트**: 폴더는 URL 세그먼트에 매핑되는 경로 세그먼트를 정의합니다 (즉, **폴더 자체가 URL 세그먼트**가 됩니다).
+- **파일 = 화면 UI**: `page.tsx` 및 `layout.tsx` 파일은 해당 세그먼트 경로에 실제로 표시될 UI를 구성합니다.
+- **폴더 중첩 = 중첩 라우트 완성**: 디렉터리를 계층적으로 중첩하면 직관적인 중첩 라우트가 완성됩니다.
+
+---
+
+### 3. 중첩 라우트 생성 기본 실습 (`/blog`)
+
+특정 URL 경로를 추가하고 외부에서 공개적으로 접근할 수 있도록 라우트를 개설하는 기본 절차입니다.
+
+```text
+📁 app/
+├── 📄 layout.tsx   ──► 최상위 RootLayout
+├── 📄 page.tsx     ──► URL: / (루트 홈)
+└── 📁 blog/
+    └── 📄 page.tsx ──► URL: /blog (공개 접근 가능한 블로그 목록 페이지)
+```
+
+1. **디렉토리 생성**: `/blog`에 대한 경로를 추가하기 위해 `src/app` 아래에 `blog` 폴더를 생성합니다.
+2. **페이지 파일 추가**: 해당 폴더 내에 `page.tsx`를 생성하면 `/blog` 경로로의 공개 액세스가 가능해집니다.
+
+---
+
+### 4. 공식 문서 예제 복사 시 발생하는 오류 및 해결
+
+공식 Next.js 문서의 블로그 예제 코드를 그대로 복사해 붙여넣으면 모듈 참조 에러가 발생합니다.
+
+### 🔹 에러 발생 원인
+공식 문서 코드에 작성된 `@/lib/posts` 및 `@/ui/post` 모듈이 현재 로컬 프로젝트에는 존재하지 않기 때문에 모듈을 찾을 수 없다는 컴파일 에러가 발생합니다.
+
+### 🔹 1단계 수정: 정적 리스트 렌더링 (`src/app/blog/page.tsx`)
+외부 라이브러리 참조 없이 `<li>` 태그 목록 형태로 직접 렌더링하도록 단순화합니다.
+
+```tsx
+export default function Page() {
+  return (
+    <ul>
+      <li>Post 1</li>
+      <li>Post 2</li>
+      <li>Post 3</li>
+    </ul>
+  );
+}
+```
+
+---
+
+### 5. Creating a dynamic segment (동적 세그먼트 만들기 & [slug]의 이해)
+
+동적 세그먼트(Dynamic Segment)를 사용하면 **데이터에서 생성된 경로**를 유연하게 만들 수 있습니다.
+
+### 🔹 핵심 개념
+- 각 blog 게시물에 대한 정적 경로를 일일이 직접 만드는 대신, 동적 세그먼트를 생성하여 **블로그 게시물 데이터를 기반으로 경로를 자동 생성**할 수 있습니다.
+- **문법**: 동적 세그먼트를 생성하려면 세그먼트(폴더) 이름을 **대괄호**로 묶습니다. (예: `[segmentName]`)
+  - 예: `app/blog/[slug]/page.tsx` 경로에서 `[slug]`는 동적 세그먼트입니다.
+
+### 🔹 slug의 어원과 매핑 규칙
+- **개념**: 웹사이트의 특정 페이지를 사람이 쉽게 읽을 수 있는 텍스트 형태로 식별하는 URL의 일부입니다. (신문/잡지 편집 용어 '슬러그'에서 유래)
+- **Key 역할**: URL 경로 `/blog/[slug]`에서 `[slug]` 자리는 호출할 데이터 객체의 **식별자 Key(속성명)** 역할을 합니다. 따라서 대상 데이터에 `slug` 키가 반드시 존재해야 합니다.
+- **이름의 유연성**: 폴더명이 반드시 `slug`일 필요는 없습니다. 만약 폴더명을 `[foo]`로 지었다면 데이터 객체에도 `foo`라는 key(필드)가 정의되어 있어야 합니다.
+
+### 🔹 블로그 디렉토리 계층 구조
+```text
+app/
+└── blog/
+    ├── page.tsx     // 블로그 메인 (목록)
+    └── [slug]/
+        └── page.tsx // 블로그 상세 페이지
+```
+
+---
+
+### 6. [slug] 접속 시 발생하는 Next.js 15 오류 및 3~5 라인 코드 해설
+
+코드 작성 완료 후 `/blog/[slug]`(예: `/blog/nextjs`, `routing`, `ssr-ssg`, `dynamic-routes`)로 접속해 봅니다. 동작은 정상적으로 되지만 오류 메시지가 발생합니다.
+
+### 🔹 에러 메시지
+```text
+Error: Route "/blog/[slug]" used `params.slug`. `params` should be awaited before using its properties.
+```
+
+### 🔹 에러 발생 원인
+- 이 오류는 Next.js App Router에서 **`params`가 비동기(async) 객체처럼 다뤄지는 경우** 발생합니다.
+- **Next.js 14.2 이후**로 `params`와 `searchParams`는 내부적으로 **Promise 기반 객체**일 수 있어서, 바로 쓰면 안 되고 `await`하거나 props의 구조 분해에서 미리 `await`해야 합니다.
+- **현재 실습 중인 버전이 15.x이기 때문에** 발생하는 오류입니다.
+
+### 🔹 수정된 코드의 라인별(3, 4, 5라인) 상세 설명
+```tsx
+3  export default async function Posts({ params }: { params: Promise<{ slug: string }> }) {
+4    const { slug } = await params;     // params 해제
+5    const post = posts.find((p) => p.slug === slug);
+```
+- **`async function` (Line 3)**: 컴포넌트 함수를 `async`로 선언해야 내부에서 비동기 처리를 위한 `await`를 쓸 수 있습니다.
+- **`await`를 사용하는 이유 (Line 4)**: 서버의 데이터를 읽어올 때 발생하는 타임 딜레이(Time Delay)에 의한 참조 오류를 방지하기 위해서입니다.
+  > 📌 **참고 (RESTful API)**: HTTP 프로토콜을 사용하여 자원을 식별하고 조작하는 통신 규칙을 정의하는 아키텍처 스타일입니다.
+- **매개변수 구조 (`{ params }`) (Line 3)**: Next.js가 페이지를 호출할 때는 `props` 객체로 `{ params, searchParams, ... }` 같은 값들을 넘겨주는데, 여기서 필요한 `params`만 구조 분해 할당으로 받습니다.
+- **TypeScript 타입 선언 (`{ params: Promise<{ slug: string }> }`)**: `params`가 `Promise`(비동기 값)임을 명시합니다. 최신 Next.js(14.2+)에서는 내부적으로 `params`를 비동기 Promise로 다루고 있습니다.
+- **데이터 탐색 (Line 5)**: `await`로 언래핑한 `slug` 값을 활용하여 `posts` 더미 배열에서 일치하는 데이터를 안전하게 찾아옵니다.
+
+---
+
+### 7. 성능 최적화(시간 복잡도) 및 Promise 타입 명시 권장 이유
+
+### 🔹 데이터 소스가 클 때의 처리 (`.find()` vs DB 쿼리)
+- 현재 실습에서는 소량의 더미 데이터이므로 자바스크립트 내장 배열 메서드인 `.find()`를 사용했습니다.
+- 하지만 **데이터 소스가 커진다면 `.find()`는 시간 복잡도가 $O(n)$이므로 DB 쿼리로 변경**해야 합니다.
+  > 📌 **$O(n)$의 의미**: 알고리즘의 시간 복잡도가 입력 데이터의 크기 $n$에 비례하여 실행 시간이나 메모리 사용량이 선형적으로 증가하는 것을 의미합니다.
+- **대용량 데이터 환경**: 대량의 게시글을 메모리상에서 `.find()`로 순회하면 심각한 성능 저하가 발생하므로 인덱싱된 데이터베이스 쿼리를 사용하는 것이 필수적입니다.
+
+### 🔹 `Promise<...>` 타입 명시를 권장하는 이유
+- **실제 동작**: TypeScript 코드 작성 시 `Promise<...>`를 명시하지 않고 단순 객체 타입으로 작성해도 런타임 오류 없이 동작할 수는 있습니다.
+- **비동기 명확화 및 가독성**: 겉보기에는 `params`가 동기식 객체처럼 보이지만 실제로는 비동기식이라는 점을 코드상에 명확히 드러내어 **코드의 가독성**을 크게 높여줍니다.
+- **TypeScript 실수 방지**: `Promise` 타입을 명시해 두면 개발자가 내부에서 `await`를 깜빡하고 작성하지 않았을 때 **TypeScript 컴파일러가 타입 불일치 에러를 사전에 잡아줍니다**.
+- **결론**: 따라서 오류 발생 여부와 상관없이 **`params`에 `Promise` 타입을 명시하여 사용하는 것을 강력히 권장**합니다.
+
+---
+
+### 8. Rendering with search params (검색 매개변수를 사용한 렌더링)
+
+Next.js 서버 컴포넌트 페이지에서는 URL 쿼리 파라미터(예: `?filters=item`)에 접근하기 위해 `searchParams` prop을 사용합니다.
+
+```tsx
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const filters = (await searchParams).filters;
+  // ...
+}
+```
+
+### 🔹 무엇을 언제 사용해야 하나요? (적재적소 활용법)
+- **`searchParams` prop (서버 컴포넌트)**: 페이지 데이터를 로드하기 위해 검색 매개변수가 필요한 경우(예: 페이지네이션/페이징 처리, 데이터베이스 쿼리 필터링)에 사용합니다.
+- **`useSearchParams` Hook (클라이언트 컴포넌트)**: 검색 매개변수가 클라이언트 브라우저에서만 사용되는 경우(예: props를 통해 이미 로딩 완료된 목록 데이터를 화면에서 즉각 필터링할 때)에 사용합니다.
+- **`new URLSearchParams(window.location.search)`**: 콜백 함수나 특정 이벤트 핸들러 내부에서 전체 페이지 컴포넌트를 리렌더링하지 않고도 순수 검색 매개변수 값만 읽어올 때 활용할 수 있습니다.
+
+### 🔹 `params` vs `searchParams` 핵심 차이 비교
+| 구분 | `params` (동적 세그먼트) | `searchParams` (쿼리 스트링) |
+| :--- | :--- | :--- |
+| **추출 위치** | 동적 세그먼트 `[slug]` | URL의 `?` 기호 이후에 붙는 쿼리 스트링 |
+| **데이터 형태** | URL의 **경로(Path) 자체에 포함된 데이터** | URL 뒤에 붙는 **`key=value` 형태의 데이터** |
+| **예시** | `/blog/nextjs` ➔ `{ slug: 'nextjs' }` | `/blog?sort=latest` ➔ `{ sort: 'latest' }` |
+| **렌더링 영향** | 정적 생성(SSG) 가능 (generateStaticParams 결합 시) | **해당 페이지가 무조건 동적 렌더링(Dynamic Rendering)으로 처리됨** (요청 시점마다 URL 파라미터가 달라지기 때문) |
+
+---
+
+### 9. 실습 전체 코드: 더미 데이터 및 중첩 레이아웃 구성
+
+교수님 실습 화면 기준의 전체 디렉터리 구성 및 소스 코드입니다.
+
+### 🔹 파일 구조
+```text
+src/app/
+├── posts.tsx               # 더미 데이터 정의
+├── layout.tsx              # Root Layout (공통 헤더/푸터 및 네비게이션)
+├── page.tsx                # Home 메인 페이지
+└── blog/
+    ├── layout.tsx          # Blog 전용 Sub Layout
+    ├── page.tsx            # Blog 목록 페이지 (/blog)
+    └── [slug]/
+        └── page.tsx        # Blog 상세 페이지 (/blog/[slug])
+```
+
+### 🔹 소스 코드 구현
+
+#### ① 더미 데이터 파일 (`src/app/posts.tsx`)
+```tsx
+// dummy data
+
+export const posts = [
+  { slug: "nextjs", title: "Next.js 소개", content: "Next.js는 React 기반의 풀스택 프레임워크입니다." },
+  { slug: "routing", title: "App Router 알아보기", content: "Next.js 13부터는 App Router가 도입되었습니다." },
+  { slug: "ssr-ssg", title: "SSR vs SSG", content: "서버사이드 렌더링과 정적 사이트 생성의 차이를 알아봅니다." },
+  { slug: "dynamic-routes", title: "동적 라우팅", content: "Next.js에서 [slug]를 활용한 라우팅 방식입니다." },
+];
+```
+
+#### ② 루트 레이아웃 (`src/app/layout.tsx`)
+```tsx
+import Link from "next/link";
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <header>=== Root Layout Header ===</header>
+        <nav>
+          <Link href="/">Home</Link> | <Link href="/blog">Blog</Link> | <Link href="/blog2">Blog2</Link> | <Link href="/blog3">Blog3</Link>
+        </nav>
+        <main>{children}</main>
+        <footer>--- Root Layout Footer ---</footer>
+      </body>
+    </html>
+  );
+}
+```
+
+#### ③ 메인 홈 페이지 (`src/app/page.tsx`)
+```tsx
+export default function Home() {
+  return (
+    <div>
+      <h1>=== Root Page ===</h1>
+    </div>
+  );
+}
+```
+
+#### ④ 블로그 서브 레이아웃 (`src/app/blog/layout.tsx`)
+```tsx
+import React from "react";
+
+export default function BlogLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div>*** Blog Layout Header ***</div>
+      {children}
+      <div>*** Blog Layout Footer ***</div>
+    </div>
+  );
+}
+```
+
+#### ⑤ 블로그 목록 페이지 (`src/app/blog/page.tsx`)
+```tsx
+import Link from "next/link";
+import { posts } from "../posts";
+
+export default function BlogPage() {
+  return (
+    <div>
+      <h1 style={{ fontSize: "2rem", fontWeight: "bold", margin: "16px 0" }}>
+        블로그 목록
+      </h1>
+      <ul>
+        {posts.map((post) => (
+          <li key={post.slug}>
+            <Link href={`/blog/${post.slug}`} style={{ color: "blue", textDecoration: "underline" }}>
+              {post.title}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+#### ⑥ 블로그 상세 페이지 (`src/app/blog/[slug]/page.tsx`)
+```tsx
+import { posts } from "../posts";
+
+export default async function Posts({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params; // params 해제
+  const post = posts.find((p) => p.slug === slug);
+
+  if (!post) {
+    return <h1>게시글을 찾을 수 없습니다!</h1>;
+  }
+
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+
+---
+
+### 10. Link Component 기본 사용법
+
+Next.js의 `<Link>`는 표준 HTML `<a>` 요소를 확장하여 구현된 React 컴포넌트이며, 라우트 간 전환에 가장 기본적이면서도 주로 권장되는 내비게이션 도구입니다.
+
+### 🔹 핵심 기능 및 장점
+- **클라이언트 사이드 내비게이션 (Client-Side Navigation)**: 일반 `<a>` 태그처럼 브라우저 전체를 새로고침(Full Reload)하지 않고, 필요한 데이터와 세그먼트만 비동기 갱신하여 빠른 SPA(Single Page Application) 경험을 제공합니다.
+- **프리페칭 (Prefetching)**: 링크가 뷰포트(화면)에 진입하면 백그라운드에서 해당 목적지 라우트의 데이터를 미리 다운로드하여 즉각적인 화면 전환을 지원합니다.
+- **메뉴 구성의 편의성**: 공통 헤더나 네비게이션 바 메뉴를 제작할 때 간결하게 이동 경로를 지정할 수 있습니다.
+
+### 🔹 기본 문법 예제 (`app/page.tsx`)
+```tsx
+import Link from 'next/link';
+
+export default function Page() {
+  return (
+    <nav>
+      <Link href="/dashboard">Dashboard</Link>
+    </nav>
+  );
+}
+```
+
+---
+
+### 11. Link Component의 필수 속성: `href` (required)
+
+`<Link>` 컴포넌트에서 이동할 대상 경로 또는 URL을 전달하는 필수 prop입니다. 단순 문자열 외에도 URL 객체(Object) 형태로 세부 파라미터를 넘길 수 있습니다.
+
+### 🔹 사용 방법 1: 단순 경로 문자열 전달
+```tsx
+<Link href="/about">About</Link>
+```
+
+### 🔹 사용 방법 2: URL 객체(Object) 전달
+```tsx
+import Link from 'next/link';
+
+export default function Page() {
+  return (
+    // /about?name=test 경로로 이동
+    <Link
+      href={{
+        pathname: '/about',
+        query: { name: 'test' },
+      }}
+    >
+      About
+    </Link>
+  );
+}
+```
+
+### 🔹 브라우저 렌더링 결과 (DOM 변환)
+Next.js의 `<Link>` 컴포넌트는 브라우저 렌더링 시 표준 HTML `<a>` 요소로 변환됩니다.
+- **개발자 도구 확인 시**: `<a href="/about?name=test">About</a>`
+- 검색 엔진(SEO) 크롤러는 일반 링크로 정상 수집하며, 사용자가 클릭할 때는 새로고침 없는 SPA 방식으로 라우트가 전환됩니다.
+
+---
+
 ## 3주차 (2026-09-16)
 
 *Next.js 메타데이터, 컴포넌트 계층 및 중첩 라우트 그룹*
