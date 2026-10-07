@@ -1,7 +1,118 @@
 # React2 202230119 엄태훈
 
 
-## 20260930(5주차)
+## 6주차 (2026-10-07)
+
+### 1. generateStaticParams 실습
+
+### 🔹 빌드 시점 동작 순서
+- 빌드 시점에 Next.js가 `app/blog3/[slug]/page.tsx`처럼 **동적 라우트**를 찾으면 `generateStaticParams()`를 실행합니다.
+- `generateStaticParams()`는 **params 객체들의 배열**을 반환합니다.
+- 배열의 각 `params`에 대해 `page.tsx`를 실행하여 **정적 HTML**을 생성합니다.
+
+```tsx
+export async function generateStaticParams() {
+  return [{ slug: "hello" }, { slug: "world" }, { slug: "nextjs" }];
+}
+```
+
+| 반환된 params | 빌드 후 생성되는 HTML (슬라이드 기준) |
+| :--- | :--- |
+| `{ slug: "hello" }` | `/blog/hello/index.html` |
+| `{ slug: "world" }` | `/blog/world/index.html` |
+| `{ slug: "nextjs" }` | `/blog/nextjs/index.html` |
+
+### 🔹 정리
+- `generateStaticParams()` 자체는 **slug 배열만 반환**합니다.
+- Next.js 빌드 프로세스가 이 배열을 순회하며, **각 slug에 대해 `page.tsx`를 실행 → 정적 HTML 생성**을 수행합니다.
+- `map` 함수는 HTML을 작성하는 것이 아니라, **HTML을 만들어야 할 목록을 Next.js에 전달하는 역할**을 합니다.
+
+```tsx
+import { posts } from "../posts";
+
+export async function generateStaticParams() {
+  return posts.map((post) => ({ slug: post.slug }));
+}
+```
+
+---
+
+### 2. await이 없어도 async를 붙여 두는 이유
+
+### 🔹 핵심 개념
+- Next.js 13+ App Router에서 `page.tsx` 같은 **Server Component는 비동기 렌더링을 전제**로 합니다.
+- 즉 `page.tsx` 안에서 데이터를 fetch하는 경우가 많기 때문에, **`async`를 기본으로 붙여도 전혀 문제가 없습니다.**
+
+### 🔹 async를 붙여 두는 이유
+1. **일관성 유지**: 같은 프로젝트 안에서 어떤 페이지는 `async`, 어떤 페이지는 일반 `function`이면 혼란스러울 수 있습니다. → Next.js 공식 문서도 대부분 `async function`으로 예시를 작성합니다.
+2. **확장성**: 지금은 더미 데이터(`posts.find(...)`)를 쓰지만, 나중에 DB나 API에서 데이터를 가져올 때 `await fetch(...)` 같은 코드가 들어갈 수 있습니다. 미리 `async`를 붙여 두면 그때 수정할 필요가 없습니다.
+3. **React Server Component 호환성**: Server Component는 `Promise`를 반환할 수 있어야 하고, Next.js는 내부적으로 `async` 함수 패턴에 맞춰 최적화된 렌더링 파이프라인을 갖고 있습니다. 따라서 `async`가 붙어 있어도 불필요한 오버헤드가 거의 없습니다.
+
+---
+
+### 3. generateStaticParams가 없는 경우와 있는 경우 비교
+
+### 🔹 없는 경우
+- Next.js가 **slug 값을 빌드 타임에는 모르는 상태**입니다.
+- 따라서 slug 페이지에 접속하면 Next.js가 서버에서 요청할 때마다 해당 페이지를 **동적으로 렌더링**하며, 빌드 결과물에 HTML 파일은 생성되지 않습니다.
+
+### 🔹 있는 경우
+- Next.js에 **빌드 타임에 생성할 slug 목록을 알려줄 수 있습니다.**
+- 지정한 slug에 대해서는 **정적 HTML + JSON이 빌드 타임에 생성**되어, 최초 접근 시 SSR이 필요 없이 미리 만들어둔 페이지를 제공합니다.
+
+### 🔹 비교표
+| 항목 | `generateStaticParams` 없음 | `generateStaticParams` 있음 |
+| :--- | :--- | :--- |
+| **페이지 생성 시점** | 요청 시 서버에서 생성 (SSR/ISR) | 빌드 타임에 생성 (SSG) |
+| **초기 로딩 속도** | 서버 렌더링이 필요해서 상대적으로 느림 | 정적 HTML 제공으로 매우 빠름 |
+| **SEO** | 가능하기는 하지만, 요청 시 생성 | 매우 유리 (검색엔진이 HTML을 바로 크롤링 가능) |
+| **유연성** | slug를 무한정 지원 가능 (DB 조회 등) | slug를 미리 알아야 함 (동적 slug는 제한적) |
+
+---
+
+### 4. 2-3. 느린 네트워크
+
+- 네트워크가 느리거나 불안정한 경우, 사용자가 링크를 클릭하기 전에 프리페칭이 완료되지 않을 수 있습니다.
+- 이는 **정적 경로와 동적 경로 모두**에 영향을 미칠 수 있습니다.
+- 이 경우 `loading.tsx` 파일이 아직 프리페칭되지 않았기 때문에 즉시 표시되지 않을 수 있습니다.
+- 체감 성능을 개선하기 위해 **`useLinkStatus` Hook**을 사용하여, 전환이 진행되는 동안 사용자에게 인라인 시각적 피드백(예: 링크의 스피너 또는 텍스트 글리머)을 표시할 수 있습니다.
+
+```tsx
+// app/ui/loading-indicator.tsx
+'use client'
+
+import { useLinkStatus } from 'next/link'
+
+export default function LoadingIndicator() {
+  const { pending } = useLinkStatus()
+  return pending ? (
+    <div role="status" aria-label="Loading" className="spinner" />
+  ) : null
+}
+```
+
+---
+
+### 5. 2-4. 프리페칭 비활성화
+
+- `<Link>` 컴포넌트에서 **`prefetch` prop을 `false`**로 설정하여 프리페치를 사용하지 않도록 선택할 수 있습니다.
+- 대량의 링크 목록(예: 무한 스크롤 테이블)을 렌더링할 때 불필요한 리소스 사용을 방지하는 데 유용합니다.
+
+```tsx
+<Link prefetch={false} href="/blog">Blog</Link>
+```
+
+### 🔹 프리페칭을 비활성화했을 때의 단점
+- ✓ **정적 라우팅**은 사용자가 링크를 클릭할 때만 가져옵니다.
+- ✓ **동적 라우팅**은 클라이언트가 해당 경로로 이동하기 전에 서버에서 먼저 렌더링되어야 합니다.
+
+### 🔹 절충안
+- 프리페치를 완전히 비활성화하지 않고 리소스 사용량을 줄이려면, **마우스 호버 시에만 프리페치**를 사용하면 됩니다.
+- 이렇게 하면 뷰포트의 모든 링크가 아닌, **사용자가 방문할 가능성이 높은 경로로만 프리페치가 제한**됩니다.
+
+---
+
+## 5주차 (2026-09-30)
 * App Router : 계층적으로 구성 가능, 렌더링되는 컴포넌트로 성능 최적화 기능
 * Server Rendering : 레이아웃과 페이지는 기본적으로 리액트 서버 컴포넌트, 서버 컴포넌트 페이로드는 클라이언트로 전송 되기 전에 서버에서 생성됨
  - 정적 렌더링은 빌드 시점이나 재검증 중에 발생하여 결과는 cache 됨
