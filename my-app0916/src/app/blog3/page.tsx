@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { posts } from "./posts";
+import { posts } from "../blog/posts";
 
-export default function Blog() {
+export default function Blog3() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans">
       <main className="flex flex-1 w-full max-w-3xl flex-col items-center px-16 py-32 bg-white">
