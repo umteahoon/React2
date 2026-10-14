@@ -1,6 +1,221 @@
 # React2 202230119 엄태훈
 
 
+## 7주차 (2026-10-14)
+
+### 1. server 및 client component를 언제 사용해야 하나요?
+
+- client 환경과 server 환경은 **서로 다른 기능**을 가지고 있습니다.
+- server 및 client component를 사용하면 사용하는 사례에 따라 각각의 환경에서 필요한 로직을 실행할 수 있습니다.
+
+### 🔹 client component를 사용해야 하는 경우
+다음과 같은 항목이 필요할 경우에는 **client component**를 사용합니다.
+- **state 및 event handler**. 예: `onClick`, `onChange`.
+- **Lifecycle logic**. 예: `useEffect`.
+- **브라우저 전용 API**. 예: `localStorage`, `window`, `Navigator.geolocation` 등.
+- **사용자 정의 Hook**
+
+### 🔹 server component를 사용해야 하는 경우
+다음과 같은 항목이 필요할 경우에는 **server component**를 사용합니다.
+- 서버의 데이터베이스 혹은 API에서 data를 가져오는 경우 사용합니다.
+- API key, token 및 기타 보안 데이터를 client에 노출하지 않고 사용합니다.
+- 브라우저로 전송되는 JavaScript의 양을 줄이고 싶을 때 사용합니다.
+- 콘텐츠가 포함된 첫 번째 페인트(First Contentful Paint-FCP)를 개선하고, 콘텐츠를 client에 점진적으로 스트리밍합니다.
+
+### 🔹 예시: Server Component에서 Client Component로 props 전달
+- 예를 들어, `<Page>` component는 게시물에 대한 데이터를 가져와서, client 측 상호 작용을 처리하는 `<LikeButton>`에 props로 전달하는 **server component**입니다.
+- 그리고, `@/ui/like-button`은 client component이기 때문에 `use client`를 사용하고 있습니다.
+
+```tsx
+// app/[id]/page.tsx
+import LikeButton from '@/app/ui/like-button'
+import { getPost } from '@/lib/data'
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const post = await getPost(params.id)
+
+  return (
+    <div>
+      <main>
+        <h1>{post.title}</h1>
+        {/* ... */}
+        <LikeButton likes={post.likes} />
+      </main>
+    </div>
+  )
+}
+```
+
+```tsx
+// app/ui/like-button.tsx
+'use client'
+
+import { useState } from 'react'
+
+export default function LikeButton({ likes }: { likes: number }) {
+  // ...
+}
+```
+
+---
+
+### 2. 문서의 코드를 완성해 봅시다: slug page
+
+- 완성한 코드는 다음과 같습니다.
+- **`getPost` 컴포넌트는 별도로 구현하지 않고, 슬러그에 포함된 `id`값을 비교해서 직접 가져옵니다.**
+
+```tsx
+// app/[id]/page.tsx
+import LikeButton from '@/ui/like-button'
+// 원서에서는 import { getPost } from '@/lib/data' (하지만 데이터는 직접 가져옵니다)
+import { posts } from '@/lib/data'
+import { notFound } from 'next/navigation'
+
+// 문서에서는 다음 구문을 붙여서 작성했지만 한 줄로 하는 것이 더 명확해 보입니다.
+// export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PostPage({
+  params
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params;
+
+  // posts에서 슬러그에 해당하는 포스트를 찾습니다.
+  // getPost 대신 직접 posts 배열에서 찾습니다.
+  const post = posts.find((p) => p.id === id);
+
+  if (!post) {
+    notFound();
+  }
+
+  return (
+    <div>
+      <main>
+        <h1>{post.title}</h1>
+        {/* ... */}
+        <LikeButton likes={post.likes} />
+      </main>
+    </div>
+  )
+}
+```
+
+---
+
+### 5. 문서의 코드를 완성해 봅시다: like-button.tsx (state)
+
+- `@/ui/like-button.tsx`에서는 state를 2개 사용하고 있습니다.
+
+```tsx
+const [count, setCount] = useState<number>(likes ?? 0)
+const [isLiking, setIsLiking] = useState(false)
+```
+
+- **`count`**는 like 버튼을 클릭한 횟수입니다. (초기값: data의 `like` 필드)
+- **`isLiking`**은 "서버에 요청이 진행 중인지"를 나타내는 state입니다. (초기값: `false`)
+
+### 🔹 isLiking state의 주요 역할
+- **중복 클릭 방지**: `isLiking`이 `true`인 동안은 버튼을 `disabled`로 만들어 중복 요청, 즉 중복 낙관적 업데이트를 막는 역할을 합니다.
+- **UI 피드백**: 로딩 상태 표시(스피너나 문구)를 위해 사용이 가능합니다.
+- **상태 안정화**: 서버에 요청이 끝날 때까지 추가 상태 변경을 잠시 멈추게 해서, 일관된 동작을 보장합니다.
+
+---
+
+### 6. 문서의 코드를 완성해 봅시다: like-button.tsx (Falsy 값)
+
+- **`Falsy`**는 프로그래밍 언어, 특히 JavaScript에서 조건문이나 논리 연산 등 불리언(Boolean) 값이 필요한 맥락에서 `false`로 평가되는 값들을 의미합니다.
+  - `false` 값뿐만 아니라 다양한 false에 해당하는 값들을 포괄하는 개념입니다.
+  - 거짓 같은 값(Falsy 혹은 falsey)은 Boolean 문맥에서 `false`로 평가되는 값입니다.
+
+### 🔹 Falsy 값의 예시
+1. **`false`**: 불리언 `false` 값 그 자체
+2. **`0`** (숫자): `0`은 `false`로 취급됩니다.
+3. **`''`** (빈 문자열): 문자열은 비어 있는 경우 `false`로 간주됩니다.
+4. **`null`**: 값이 없음을 의도적으로 명시할 때 사용되는 값입니다. (개발자가 할당)
+5. **`undefined`**: 값이 할당되지 않았을 때 사용되는 값입니다. (시스템에 의해 자동 부여)
+6. **`NaN`**: Not-a-Number, 즉 숫자가 아님을 나타내는 값입니다.
+
+---
+
+### 7. 문서의 코드를 완성해 봅시다: Optimistic Update
+
+### 🔹 Optimistic Update(낙관적 업데이트)
+- 사용자에 의해서 이벤트(예: 좋아요 버튼 클릭)가 발생하면, **서버 응답을 기다리지 않고** 클라이언트(브라우저)의 UI를 즉시 변경(업데이트)합니다.
+- 서버에 보낸 요청의 성공을 낙관(optimistic)한다고 가정해서 먼저 화면에 변화를 보여줍니다.
+- 서버에서 응답이 없으면, UI를 원래 상태로 되돌립니다(rollback).
+- 네트워크 지연 동안에도 앱이 "빠르게 반응"하도록 느끼게 하는 것이 목적입니다.
+
+**장점**
+- 서버 응답 속도와 관계없이 즉각적인 피드백을 제공하여 사용자 경험을 향상시킵니다.
+- 네트워크 상태가 나쁘거나 응답 시간이 길어도 사용자에게 체감되는 속도가 빠릅니다.
+
+**단점**
+- 서버에서 오류가 발생하면, 사용자에게는 잠시 동안 잘못된 정보가 표시될 수 있습니다.
+- 오류 발생 시 복구 로직이 필요합니다.
+
+---
+
+### 8. 문서의 코드를 완성해 봅시다: Pessimistic Update
+
+### 🔹 Pessimistic Update(비관적 업데이트)
+- 이벤트가 발행하면 먼저 서버에 요청을 보내고, 서버에서 성공 응답을 받은 후에 클라이언트의 UI를 업데이트합니다.
+
+**장점**
+- 서버의 응답을 기반으로 하기 때문에 데이터의 일관성이 보장됩니다.
+- 오류가 발생할 가능성이 낮고, 잘못된 정보가 표시될 염려가 없습니다.
+
+**단점**
+- 사용자는 서버의 응답을 기다려야 하므로, 응답이 늦어지면 사용자 경험이 저하될 수 있습니다.
+- 특히 네트워크 지연이 발생할 경우 체감 속도가 느려집니다.
+
+### 🔹 낙관적 업데이트 vs 비관적 업데이트
+| 구분 | 낙관적 업데이트 | 비관적 업데이트 |
+| :--- | :--- | :--- |
+| **UI 업데이트 시점** | 요청 직후 즉시 | 서버 응답을 받은 후 |
+| **응답 실패 시** | 원래 상태로 롤백 | UI 변경 없음 |
+| **속도 및 반응성** | 빠름 | 상대적으로 느림 |
+| **적용 예시** | 좋아요 버튼, 댓글 작성 | 데이터 조회 후 렌더링 |
+
+---
+
+### 9. Next.js에서 server와 client component는 어떻게 작동합니까?
+
+### 🔹 2-1. server component의 작동
+- Next.js는 server에서 React의 API를 사용하여 렌더링을 조정합니다.
+- 렌더링 작업은 개별 라우팅 세그먼트 별 묶음(Chunk)으로 나뉩니다. (`layout` 및 `page`)
+- server component는 **RSC Payload(React Server Component Payload)**라는 특수한 데이터 형식으로 렌더링됩니다.
+- client component와 RSC Payload는 HTML을 미리 렌더링(prerender)하는 데 사용됩니다.
+
+### 🔹 React Server Component Payload(RSC)란 무엇인가요?
+- RSC 페이로드는 렌더링된 React Server Components 트리를 직렬화하여 표현한 컴팩트한 형태입니다.
+- client에서 React가 브라우저의 DOM을 업데이트하는 데 사용됩니다.
+
+---
+
+### 10. RSC(RSC Payload)는 JSON인가, 바이너리인가?
+
+### 🔹 과거: JSON 기반
+- RSC 초기에는 JSON 형식의 문자열로 데이터를 전달했습니다.
+- 예: `{ type: "component", props: { title: "Hello" } }`
+
+### 🔹 현재: 바이너리 형식으로 최적화
+- 최신 React, 특히 Next.js App Router는 RSC payload를 **compact binary format**으로 전송합니다.
+- JSON이 아니라, React 전용 이진 포맷으로 스트림(stream)을 통해 전달됩니다.
+- 이 방식은 JSON보다 용량이 작고, 빠르게 파싱할 수 있습니다.
+
+---
+
+### 11. 2-2. client component의 작동(첫 번째 load)
+
+1. **HTML**은 사용자에게 경로(라우팅 페이지)의 비대화형(정적) 미리보기를 즉시 보여주는데 사용됩니다.
+2. **RSC 페이로드**는 client와 server component 트리를 조정하는데 사용됩니다.
+3. **JavaScript**는 client component를 hydration하고, 애플리케이션을 대화형으로 만드는 데 사용됩니다.
+
+### 🔹 Hydration이란 무엇인가?
+- Hydration은 이벤트 핸들러를 DOM에 연결하여 정적 HTML을 인터랙티브하게 만드는 React의 프로세스입니다.
+
+---
+
 ## 6주차 (2026-10-07)
 
 ### 1. generateStaticParams 실습
