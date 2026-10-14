@@ -1,4 +1,5 @@
 import { posts } from "../posts";
+import LikeButton from "../../../components/like-button";
 
 export default async function Posts({
   params,
@@ -16,6 +17,7 @@ export default async function Posts({
     <article>
       <h1>{post.title}</h1>
       <p>{post.content}</p>
+      <LikeButton likes={post.likes} />
     </article>
   );
 }

@@ -10,7 +10,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <nav>
-          <Link href="/">Home</Link> | <Link href="/blog">Blog</Link> | <Link href="/blog2">Blog2</Link> | <Link href="/blog3">Blog3</Link> | <Link href="/contact">Contact</Link>
+          <Link href="/">Home</Link> | <Link href="/blog">Blog</Link> | <Link href="/blog2">Blog2</Link> | <Link href="/blog3">Blog3</Link> | <Link href="/contact">Contact</Link> | <Link href="/blog/nextjs">Like Demo</Link> | <Link href="/counter">Counter</Link>
         </nav>
         <main>{children}</main>
       </body>
