@@ -1,6 +1,281 @@
 # React2 202230119 엄태훈
 
 
+## 10주차 (2026-11-04)
+
+*server/client component 간 데이터 전달: 직렬화(serialization)와 인터리빙(interleaving)*
+
+---
+
+### 1. 3-3. server에서 client component로 데이터 전달
+
+- 다른 방법으로는 **`use` Hook**을 사용하여 server component에서 client component로 데이터를 스트리밍할 수도 있습니다. (예제는 `# Fetching Data`에서 소개)
+
+> 💡 **알아두면 좋은 정보**: client component에 전달되는 Props는 **React로 직렬화가 가능**해야 합니다.
+
+### 🔹 직렬화(serialization)란 무엇인가?
+- 일반적으로는 메모리에 있는 복잡한 데이터를 바이트의 연속 형태로 변환하는 과정을 말합니다.
+- 즉, 자바스크립트의 객체나 배열처럼 구조가 있는 데이터를 파일로 저장하거나, 네트워크로 전송하기 쉽게 만드는 과정입니다.
+- React나 Next.js 같은 프레임워크는 컴포넌트의 상태나 트리 구조를 서버에서 직렬화하여 클라이언트로 전송하고, 클라이언트에서 역직렬화하는 과정을 자주 수행합니다.
+
+---
+
+### 2. 3-4. server 및 client component 인터리빙
+
+- **인터리빙(Interleaving)**은 여러 데이터 블록이나 비트를 섞어서 전송하거나 처리하여 오류 발생 시 영향을 최소화하는 기술입니다.
+- 특히 데이터 통신에서 버스트 오류(연속적인 오류)를 줄이고 오류 정정 코드를 효과적으로 사용하기 위해 사용됩니다.
+- 문서에서는 server 컴포넌트와 client 컴포넌트가 섞여서(interleaved) 동작할 때 자주 등장하는 패턴입니다.
+
+### 🔹 핵심 패턴
+- server component의 prop을 client component에 전달할 수 있습니다.
+- 이를 통해 client component 내에서 server에서 렌더링된 UI를 시각적으로 중첩할 수 있습니다.
+- `<ClientComponent>`에 공간(slot)을 만들고 `children`을 끼워넣는 패턴이 일반적입니다.
+
+```tsx
+// app/ui/modal.tsx
+'use client';
+
+export default function Modal({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>;
+}
+```
+
+---
+
+### 3. server 및 client component interleaving 실습
+
+동작 과정을 살펴보기 위한 실습입니다. 먼저 `ClientLayout.tsx` 컴포넌트를 다음과 같이 구성합니다.
+
+```tsx
+// @/components/ClientLayout.tsx  (Client Component)
+'use client';
+
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="layout">
+      <h1>클라이언트 레이아웃</h1>
+      <div className="content">
+        {children} {/* <-- 이 부분이 "slot" */}
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 9주차 (2026-10-28)
+
+*Client Component 활용 실습: Counter 컴포넌트, 동적 세그먼트([id])와 LikeButton 연동, 전역 내비게이션 링크 구성 및 JS bundle 크기 최적화*
+
+---
+
+### 1. Client Component 작성 이유와 컴포넌트 사용 목적
+
+### 🔹 컴포넌트의 대표적인 사용 목적
+- **다른 컴포넌트의 완성**: 단위 컴포넌트(버튼, 입력 필드 등)를 별도 모듈로 분리하여 상위 컴포넌트나 레이아웃에 조합 및 재사용.
+- **라우팅 페이지의 렌더링**: Next.js의 라우트 세그먼트(`page.tsx`) 내에 배치되어 화면 UI를 구성하고 사용자의 인터랙션을 처리.
+
+### 🔹 Counter 컴포넌트를 Client Component로 분리하는 이유
+- Next.js App Router의 페이지(`page.tsx`)는 기본적으로 **Server Component**로 동작합니다.
+- 상태값 관리(`useState`)나 이벤트 핸들러(`onClick`)와 같은 **브라우저 측 인터랙션**은 서버 컴포넌트에서 직접 실행할 수 없으므로, 해당 로직을 처리하는 컴포넌트는 반드시 최상단에 `'use client'` 지시어를 명시하여 **Client Component**로 분리해야 합니다.
+
+---
+
+### 2. [실습 1] Counter 컴포넌트 및 페이지 구현
+
+### 🔹 ① Client Component 생성 (`src/components/Counter.tsx`)
+버튼 클릭 시 좋아요 수가 실시간으로 1씩 증가하는 클라이언트 컴포넌트입니다.
+
+```tsx
+// src/components/Counter.tsx
+'use client';
+
+import { useState } from 'react';
+
+export default function Counter() {
+  const [likes, setLikes] = useState<number>(5);
+
+  const handleClick = () => {
+    setLikes((prev) => prev + 1);
+  };
+
+  return (
+    <div>
+      <p>{likes} likes</p>
+      <button onClick={handleClick}>Click me</button>
+    </div>
+  );
+}
+```
+
+### 🔹 ② 라우팅 페이지 연동 (`src/app/counter/page.tsx`)
+서버 컴포넌트인 `/counter` 페이지에서 Counter 컴포넌트를 가져와 렌더링합니다.
+
+```tsx
+// src/app/counter/page.tsx
+import Counter from '@/components/Counter';
+
+export default function CounterPage() {
+  return (
+    <div>
+      <h1>Counter Page</h1>
+      <Counter />
+    </div>
+  );
+}
+```
+
+렌더링 결과 (`/counter`): "Counter Page" 제목과 함께 "5 likes" 텍스트 및 "Click me" 버튼이 렌더링되며, 클릭 시 상태값이 증가합니다.
+
+---
+
+### 3. [실습 2] 동적 세그먼트([id])와 LikeButton 연동 (`src/app/[id]/page.tsx`)
+
+7주차에 다룬 낙관적 업데이트(Optimistic Update) 개념을 기반으로, 더미 데이터와 LikeButton 컴포넌트를 동적 라우트(`[id]`)에 바인딩합니다.
+
+### 🔹 ① 더미 데이터 정의 (`src/lib/data.ts`)
+```tsx
+// src/lib/data.ts
+export interface Post {
+  id: string;
+  title: string;
+  likes: number;
+}
+
+export const posts: Post[] = [
+  { id: '1', title: 'Next.js 서버 컴포넌트 실습', likes: 10 },
+  { id: '2', title: 'Client Component와 LikeButton', likes: 25 },
+  { id: '3', title: '낙관적 업데이트 vs 비관적 업데이트', likes: 42 },
+];
+```
+
+### 🔹 ② LikeButton 클라이언트 컴포넌트 (`src/ui/like-button.tsx`)
+```tsx
+// src/ui/like-button.tsx
+'use client';
+
+import { useState } from 'react';
+
+export default function LikeButton({ likes }: { likes: number }) {
+  const [count, setCount] = useState<number>(likes ?? 0);
+  const [isLiking, setIsLiking] = useState<boolean>(false);
+
+  const handleLike = () => {
+    if (isLiking) return;
+
+    setIsLiking(true);
+    // UI 즉시 반영 (낙관적 업데이트)
+    setCount((prev) => prev + 1);
+
+    // 가상 네트워크 요청 처리 완료 후 해제
+    setTimeout(() => {
+      setIsLiking(false);
+    }, 500);
+  };
+
+  return (
+    <button onClick={handleLike} disabled={isLiking}>
+      {isLiking ? '처리 중...' : `❤️ 좋아요 ${count}`}
+    </button>
+  );
+}
+```
+
+### 🔹 ③ 동적 슬러그 상세 페이지 구현 (`src/app/[id]/page.tsx`)
+Next.js 15 환경에 맞추어 `params`를 비동기(`await params`)로 언래핑한 뒤 일치하는 데이터를 탐색합니다.
+
+```tsx
+// src/app/[id]/page.tsx
+import LikeButton from '@/ui/like-button';
+// 문서의 import { getPost } from '@/lib/data' 대신 데이터만 가져옵니다
+import { posts } from '@/lib/data';
+import { notFound } from 'next/navigation';
+
+// 문서에서는 다음 구문을 풀어서 작성했지만 한 줄로 하는 것이 더 명확해 보입니다.
+// export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PostPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  // posts에서 슬러그에 해당하는 포스트를 찾습니다.
+  // getPost 대신 직접 posts 배열에서 찾습니다.
+  const post = posts.find((p) => p.id === id);
+
+  if (!post) {
+    notFound();
+  }
+
+  return (
+    <div>
+      <main>
+        <h1>{post.title}</h1>
+        {/* ... */}
+        <LikeButton likes={post.likes} />
+      </main>
+    </div>
+  );
+}
+```
+
+---
+
+### 4. [실습 3] 모든 라우팅 페이지에서 접근 가능한 링크 네비게이션 구성 (`src/app/layout.tsx`)
+
+테스트 편의를 위해 최상위 공유 레이아웃(RootLayout)에 내비게이션 메뉴를 구성하여 홈(`/`), 카운터(`/counter`), 그리고 슬러그 상세 페이지들(`/nextjs`, `/routing`, `/ssr-ssg`, `/dynamic-routes`)로 즉시 이동할 수 있도록 작성합니다.
+
+```tsx
+// src/app/layout.tsx
+import Link from "next/link";
+import "./globals.css";
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <header>
+          <p>=== Root Layout Header ===</p>
+          <nav>
+            <Link href="/">Home</Link> | <Link href="/counter">Counter</Link>
+            <br />
+            <br />
+            Slug Page Menu :&nbsp;
+            <Link href="/nextjs">nextjs</Link>&nbsp;|&nbsp;
+            <Link href="/routing">routing</Link>&nbsp;|&nbsp;
+            <Link href="/ssr-ssg">ssr-sge</Link>&nbsp;|&nbsp;
+            <Link href="/dynamic-routes">dynamic-routes</Link>
+            <br />
+          </nav>
+          <br />
+          <br />
+        </header>
+        <main>{children}</main>
+        <footer>=== Root Layout Footer ===</footer>
+      </body>
+    </html>
+  );
+}
+```
+
+---
+
+### 5. 3-2. JS bundle 크기 줄이기
+
+- client JavaScript 번들의 크기를 줄이려면 UI의 큰 부분을 client component로 표시하는 대신 특정 대화형 component에만 `"use client"`를 추가합니다.
+- 예를 들어, `<Layout>` component는 로고와 탐색 링크와 같은 정적 요소가 대부분이지만 대화형 검색창이 포함되어 있습니다.
+- `<Search />`는 대화형이기 때문에 client component가 되어야 하지만, 나머지 layout은 server component로 유지될 수 있습니다.
+
+> 💡 **핵심 원칙**: 인터랙션이 없는 나머지 layout은 반드시 server component로 유지해야 클라이언트로 전송되는 번들 크기를 최소화할 수 있습니다!
+
+---
+
 ## 7주차 (2026-10-14)
 
 ### 1. server 및 client component를 언제 사용해야 하나요?

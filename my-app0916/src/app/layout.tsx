@@ -1,18 +1,35 @@
-import React from 'react';
-import Link from 'next/link';
+import Link from "next/link";
+import "./globals.css";
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en">
       <body>
-        <nav>
-          <Link href="/">Home</Link> | <Link href="/blog">Blog</Link> | <Link href="/blog2">Blog2</Link> | <Link href="/blog3">Blog3</Link> | <Link href="/contact">Contact</Link> | <Link href="/blog/nextjs">Like Demo</Link> | <Link href="/counter">Counter</Link>
-        </nav>
+        <header>
+          <p>=== Root Layout Header ===</p>
+          <nav>
+            <Link href="/">Home</Link> | <Link href="/counter">Counter</Link>
+            <br />
+            <br />
+            Slug Page Menu :&nbsp;
+            <Link href="/nextjs">nextjs</Link>&nbsp;|&nbsp;
+            <Link href="/routing">routing</Link>&nbsp;|&nbsp;
+            <Link href="/ssr-ssg">ssr-sge</Link>&nbsp;|&nbsp;
+            <Link href="/dynamic-routes">dynamic-routes</Link>
+            <br />
+            <br />
+            <Link href="/interleaved">Interleaved</Link>
+            <br />
+          </nav>
+          <br />
+          <br />
+        </header>
         <main>{children}</main>
+        <footer>=== Root Layout Footer ===</footer>
       </body>
     </html>
   );
