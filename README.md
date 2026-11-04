@@ -64,6 +64,227 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
 ---
 
+### 4. Context란 무엇인가?
+
+다음 절은 **3-5. Context provider** 입니다.
+
+React에서도 나온 개념이지만, 문서를 보기 전에 먼저 context에 대해서 알아보겠습니다.
+
+- Next.js에서 **Context**는 React의 **Context API**를 사용하여 컴포넌트 사이에 데이터를 공유하는 메커니즘을 의미합니다.
+- 즉, 부모 컴포넌트에서 자식 컴포넌트로 직접 **props를 전달하지 않고도**, 특정 데이터를 필요한 컴포넌트에서 쉽게 접근하고 사용할 수 있도록 도와줍니다.
+
+### 🔹 Context의 주요 특징
+
+**전역 상태 관리**
+- Context를 사용하면 애플리케이션 전체에서 공유해야 하는 데이터를 중앙 집중적으로 관리할 수 있습니다. (예: 사용자 정보, 테마 설정 등)
+
+**props drilling 문제 해결**
+- 컴포넌트 트리가 깊어질수록 props를 계속 전달해야 하는 번거로움을 줄여줍니다.
+- Context를 사용하면 필요한 컴포넌트에서 바로 데이터를 가져올 수 있으므로, 코드의 가독성을 높이고 유지 보수를 용이하게 합니다.
+
+**React 컴포넌트에서 사용**
+- Context는 React에서 제공하는 기능이기 때문에, Next.js에서도 React 컴포넌트를 사용하여 구현합니다.
+
+### 🔹 예시 코드
+- `MyContext`는 Context 객체를 나타내고, `MyContext.Provider`는 `MyComponent`에 데이터를 제공합니다.
+- `useContext(MyContext)`를 통해 `MyComponent`는 `"Hello from Context"` 값을 가져와서 렌더링합니다.
+- 다음은 설명을 위한 예시이며, 실습은 뒤에서 합니다.
+
+```tsx
+// Context 생성
+const MyContext = React.createContext();
+
+function MyComponent() {
+  const value = useContext(MyContext);
+  return <div>{value}</div>;
+}
+```
+
+```tsx
+function App() {
+  return (
+    <MyContext.Provider value="Hello from Context">
+      <MyComponent />
+    </MyContext.Provider>
+  );
+}
+```
+
+---
+
+### 5. 3-5. Context provider (컨텍스트 제공자)
+
+- **React Context**는 일반적으로 아래 테마처럼 전역 상태를 공유하는 데 사용됩니다.
+- 그러나 **server component에서는 React Context가 지원되지 않습니다.**
+- Context를 사용하려면 `children`을 허용하는 **client component**로 만들어야 합니다.
+
+```tsx
+// app/theme-provider.tsx
+'use client';
+
+import { createContext } from 'react';
+
+export const ThemeContext = createContext({});
+
+export default function ThemeProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <ThemeContext.Provider value="dark">{children}</ThemeContext.Provider>;
+}
+```
+
+> 📌 문서에서 설명하는 예제에는 오류는 없으나, 육안으로 변화를 느낄 수 없기 때문에 별도의 예제를 통해 확인해 보도록 하겠습니다.
+
+---
+
+### 6. Context provider 실습
+
+다음은 `ThemeProvider.tsx` 파일에 추가/수정된 부분입니다. (`useState`, `useEffect`를 더해서 실제로 테마 값이 바뀌는 걸 확인할 수 있게 만든 버전)
+
+```tsx
+// src/components/ThemeProvider.tsx
+'use client';
+
+import { createContext, useEffect, useState } from 'react';
+
+export const ThemeContext = createContext<{
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+}>({
+  theme: 'light',
+  toggleTheme: () => {},
+});
+
+export default function ThemeProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.documentElement.dataset.theme = theme;
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+```
+
+`ThemeStatus.tsx`는 `useContext(ThemeContext)`로 현재 테마를 읽고 토글하는 컴포넌트입니다.
+
+```tsx
+// src/components/ThemeStatus.tsx
+'use client';
+
+import { useContext } from 'react';
+import { ThemeContext } from './ThemeProvider';
+
+export default function ThemeStatus() {
+  const { theme, toggleTheme } = useContext(ThemeContext);
+
+  return (
+    <div>
+      <p>현재 테마: {theme}</p>
+      <button onClick={toggleTheme}>테마 전환</button>
+    </div>
+  );
+}
+```
+
+다음은 `RootLayout`의 추가/수정 사항입니다. `<ThemeProvider>`로 전체를 감싸고, 헤더 안에 `<ThemeStatus />`를 배치합니다.
+
+```tsx
+// src/app/layout.tsx
+import Link from "next/link";
+import "./globals.css";
+import ThemeStatus from "@/components/ThemeStatus";
+import ThemeProvider from "@/components/ThemeProvider";
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body>
+        <ThemeProvider>
+          <header>
+            <p>=== Root Layout Header ===</p>
+            <nav>
+              {/* ...기존 nav 링크들... */}
+            </nav>
+            <ThemeStatus />
+          </header>
+          <main>{children}</main>
+          <footer>=== Root Layout Footer ===</footer>
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+> 💡 `ThemeProvider`가 `<html>`/`<body>` 밖이 아니라 **`<body>` 안에서** `<header>`, `<main>`, `<footer>`를 전부 감싸야, 그 하위 어떤 컴포넌트에서든 `useContext(ThemeContext)`로 테마 값에 접근할 수 있습니다.
+
+`ThemeProvider`의 `useEffect`가 `document.documentElement.dataset.theme`를 바꾸므로, `globals.css`에 `data-theme` 값에 따른 스타일을 정의해주면 토글 버튼을 누를 때 실제로 배경/글자색이 바뀝니다.
+
+```css
+/* src/app/globals.css */
+html[data-theme='light'] {
+  background-color: white;
+  color: black;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+html[data-theme='dark'] {
+  background-color: #121212;
+  color: white;
+  transition: background-color 0.3s, color 0.3s;
+}
+```
+
+---
+
+### 7. Context provider 실습 코드 설명
+
+### 🔹 1. Context 생성 코드 설명 (`ThemeProvider.tsx`) — client 컴포넌트
+
+- context를 사용하면 props를 사용하지 않고도 전역적으로 사용할 theme, 언어 설정, 로그인 정보 등을 하위 컴포넌트에 전달할 수 있습니다.
+- `createContext()`는 React 컴포넌트 트리 전체에 값을 공유할 수 있도록 하는 역할을 합니다.
+- `createContext(...)`로 Context 객체를 생성하여, Theme state를 공유합니다.
+
+```tsx
+export const ThemeContext = createContext<{
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
+}>({
+  theme: 'light',
+  toggleTheme: () => {},
+});
+```
+
+- **`{...}` 부분은 타입 부분입니다.**
+  - `theme`: `'light'` 또는 `'dark'` 중 하나이고,
+  - `toggleTheme`: 아무 인자도 받지 않고, 반환값도 없는 함수라는 것을 의미합니다.
+- **초기값(default value)은 provider가 없을 때 사용할 fallback value입니다.**
+  - React에서는 `createContext()`를 호출할 때 기본값이 반드시 있어야 합니다.
+  - 보통은 실제 동작하지 않는 빈 함수(`() => {}`)를 기본으로 넣어둡니다.
+  - 실제 동작은 `ThemeProvider` 컴포넌트에서 설정하게 됩니다.
+  - 기본값: `theme: 'light', toggleTheme: () => {}`
+
+---
+
 ## 9주차 (2026-10-28)
 
 *Client Component 활용 실습: Counter 컴포넌트, 동적 세그먼트([id])와 LikeButton 연동, 전역 내비게이션 링크 구성 및 JS bundle 크기 최적화*
