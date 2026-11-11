@@ -1,6 +1,124 @@
 # React2 202230119 엄태훈
 
 
+## 11주차 (2026-11-11)
+
+*Context provider 실습 코드 설명: ThemeProvider의 useState와 TypeScript 유니온 타입*
+
+---
+
+### 1. Context provider 실습 코드 설명
+
+- 다음 파일 내부에서 `ThemeProvider` 컴포넌트를 정의합니다. (line13 ~)
+- `useState`로 theme 상태를 관리합니다. (line18)
+  - line6에서도 나왔던 `<'light' | 'dark'>`은 TypeScript의 **"유니온 타입(Union Type)"**이며, 초기값은 `light`라는 것을 의미합니다.
+
+```tsx
+const [theme, setTheme] = useState<'light' | 'dark'>('light')
+```
+
+### 🔹 TypeScript의 유니온 타입(Union Type)이란?
+- `|`(파이프)로 여러 타입을 연결해서 "이 값은 각각의 타입 중 하나가 될 수 있다"는 것을 지정합니다.
+- 코드에서 문자열 리터럴 유니온 타입의 경우, state 값으로 `'light'` 또는 `'dark'`만 설정할 수 있어 **코드 자동완성과 타입 안정성**이 향상됩니다.
+
+---
+
+### 2. Context provider 실습 코드 설명 (useEffect와 data-theme)
+
+- **line22**는 다음과 같은 의미입니다.
+  - `document.documentElement`는 HTML 문서의 `<html>` 요소를 가리킵니다.
+  - `.dataset.theme = theme`은 `<html>` 태그에 `data-theme` 속성을 추가하는 코드입니다.
+  - → 만일 theme state가 `"dark"`라면 다음과 같이 HTML을 반환합니다: `<html data-theme="dark">`
+
+- **`useEffect`의 두 번째 인자 `[theme]`는 의존성 배열(dependency array)입니다.** (line24)
+  - theme 값이 변경될 때마다 `useEffect` 안의 코드가 **다시 실행**됩니다.
+  - → 즉, 테마가 바뀔 때마다 HTML의 `data-theme` 속성도 업데이트됩니다.
+
+- 이 방법을 사용할 경우 CSS에서 속성을 조건으로 스타일을 다르게 지정할 수 있습니다.
+
+```tsx
+useEffect(() => {
+  if (typeof window !== 'undefined') {
+    document.documentElement.dataset.theme = theme
+  }
+}, [theme])
+```
+
+```css
+html[data-theme='light'] {
+  background-color: white;
+  color: black;
+}
+
+html[data-theme='dark'] {
+  background-color: black;
+  color: white;
+}
+```
+
+---
+
+### 3. 속성 선택자(Attribute Selector)
+
+- 여기서 `html[data-theme='light']`는 **속성 선택자(Attribute Selector)**로, CSS에서 클래스(`.class`)나 아이디(`#id`)처럼 요소를 선택하는 또 다른 방법입니다.
+- 속성 선택자는 class를 여러 개 붙이는 경우보다 스타일 충돌을 줄일 수 있습니다.
+
+```css
+html[data-theme='light'] {
+  background-color: white;
+  color: black;
+}
+
+html[data-theme='dark'] {
+  background-color: black;
+  color: white;
+}
+```
+
+> ❓ CSS를 적용하려면 코드를 어떻게 수정하면 좋을까요? **직접 작성해 보세요!**
+
+---
+
+### 4. 테마 토글버튼 코드 설명 (`theme-status.tsx`) — client 컴포넌트
+
+- `ThemeContext`를 사용하기 위해서 `theme-provider`를 import합니다. (line4)
+- `useContext` 함수를 이용해서 `ThemeContext`에서 전달받은 `theme`와 `toggleTheme`를 추출합니다. (line7)
+- 클릭 이벤트가 발생하면 추출된 `toggleTheme` 함수가 실행되고, 버튼 내의 삼항 연산자를 사용하여 버튼의 모양을 교체해 줍니다. (line10 ~ line11)
+
+```tsx
+// src/components/theme-status.tsx
+'use client';
+
+import { useContext } from 'react';
+import { ThemeContext } from './theme-provider';
+
+export default function ThemeStatus() {
+  const { theme, toggleTheme } = useContext(ThemeContext);
+  return (
+    <div style={{ display: 'inline-block', marginLeft: 12 }}>
+      <button onClick={toggleTheme} aria-label="toggle theme">
+        Theme: {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
+      </button>
+    </div>
+  );
+}
+```
+
+- **`aria-label` 속성**: 텍스트가 없거나 부족할 때, 화면 낭독기 등 보조 기술이 버튼의 역할을 설명하도록 접근성 이름을 제공합니다.
+- **aria**: Accessible Rich Internet Applications(접근 가능한 풍부한 인터넷 애플리케이션)의 약자
+
+---
+
+### 5. `<ThemeProvider>`는 어디를 감싸야 할까?
+
+- 하지만 `<body><ThemeProvider>...</ThemeProvider></body>`처럼 감싸도, `<body>`를 감싸도 그리고 `<html>`을 감싸도 동작하는 이유는 무엇일까요?
+  - → `RootLayout` 컴포넌트의 `return` 내부를 보면 일반 html처럼 보이지만, 실제로 Next.js에서는 `<html>`과 `<body>`도 **React의 JSX 엘리먼트**로 렌더링됩니다.
+  - → 즉, 렌더링 트리 상으로는 다르게 보여도, `useEffect`에서 직접 DOM을 조작하기 때문에 결과적으로 똑같이 보이는 것입니다.
+
+> 💡 코드가 완성되면 브라우저의 개발자 도구를 사용하여 테마가 변할 때의 엘리먼트의 상태를 관찰해 보세요.
+
+---
+
 ## 10주차 (2026-11-04)
 
 *server/client component 간 데이터 전달: 직렬화(serialization)와 인터리빙(interleaving)*

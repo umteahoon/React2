@@ -5,11 +5,11 @@ import { ThemeContext } from './ThemeProvider';
 
 export default function ThemeStatus() {
   const { theme, toggleTheme } = useContext(ThemeContext);
-
   return (
-    <div>
-      <p>현재 테마: {theme}</p>
-      <button onClick={toggleTheme}>테마 전환</button>
+    <div style={{ display: 'inline-block', marginLeft: 12 }}>
+      <button onClick={toggleTheme} aria-label="toggle theme">
+        Theme: {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
+      </button>
     </div>
   );
 }
