@@ -326,6 +326,64 @@ export default async function Page() {
 
 ---
 
+### 8. 1-2. 클라이언트 컴포넌트에서 `use()` 훅으로 데이터 가져오기
+
+- 데이터 fetching 함수는 **await 하지 않고** Promise 그대로 자식 클라이언트 컴포넌트에 넘긴 뒤, 클라이언트 쪽에서 React의 `use()` 훅으로 그 Promise를 풀어서 사용할 수 있습니다.
+- 이렇게 하면 서버 컴포넌트는 데이터가 준비될 때까지 기다리지 않고 바로 렌더링되고, `<Suspense>`의 `fallback`이 로딩 중 UI로 보여지다가 데이터가 도착하면 교체됩니다.
+
+```tsx
+// lib/getPosts.ts
+export default function getPosts(url: string) {
+  const res = fetch(url);
+  const json = res.then((r) => r.json());
+
+  return json;
+}
+```
+
+```tsx
+// app/blog/page.tsx
+import Posts from '@/components/posts';
+import { Suspense } from 'react';
+import getPosts from '@/lib/getPosts';
+
+export default function Page() {
+  // 데이터 가져오는 함수를 await 하지 않습니다.
+  const posts = getPosts('https://jsonplaceholder.typicode.com/posts');
+
+  return (
+    <Suspense fallback={<div>loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  );
+}
+```
+
+```tsx
+// components/posts.tsx
+'use client';
+
+import { use } from 'react';
+
+export default function Posts({
+  posts,
+}: {
+  posts: Promise<{ id: string; title: string }[]>;
+}) {
+  const allPosts = use(posts);
+
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
 ## 11주차 (2026-11-11)
 
 *Context provider 실습 코드 설명: ThemeProvider의 useState와 TypeScript 유니온 타입*
