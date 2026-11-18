@@ -3,13 +3,12 @@
 
 ## 12주차 (2026-11-18)
 
-*외부(서드 파티) component 실습 마무리: Carousel 컴포넌트 최종본과 전역 네비게이션 연결*
+
 
 ---
 
 ### 1. 3-6. 외부(서드 파티) component
 
-> 📌 실습은 뒤에서 합니다. 여기서는 이론에만 집중해 주세요.
 
 - client 전용 기능에 의존하는 외부 component를 사용하는 경우, 해당 component를 client component에 래핑하여 예상대로 작동하는지 확인할 수 있습니다.
 - 예를 들어, `<Carousel />`은 `acme-carousel` 패키지에서 가져올 수 있습니다.
