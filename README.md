@@ -1,6 +1,331 @@
 # React2 202230119 엄태훈
 
 
+## 12주차 (2026-11-18)
+
+*외부(서드 파티) component 실습 마무리: Carousel 컴포넌트 최종본과 전역 네비게이션 연결*
+
+---
+
+### 1. 3-6. 외부(서드 파티) component
+
+> 📌 실습은 뒤에서 합니다. 여기서는 이론에만 집중해 주세요.
+
+- client 전용 기능에 의존하는 외부 component를 사용하는 경우, 해당 component를 client component에 래핑하여 예상대로 작동하는지 확인할 수 있습니다.
+- 예를 들어, `<Carousel />`은 `acme-carousel` 패키지에서 가져올 수 있습니다.
+- 이 component는 `useState`를 사용하지만 `"use client"` 지시문은 없습니다.
+  - ⚠️ `"use client"` 지시문 없이 어떻게 사용할 수 있을까요?
+- **client component 내에서 `<Carousel />`을 사용하면 예상대로 작동합니다.**
+
+```tsx
+// app/gallery.tsx
+'use client';
+
+import { useState } from 'react';
+import { Carousel } from 'acme-carousel';
+
+export default function Gallery() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div>
+      <button onClick={() => setIsOpen(true)}>View pictures</button>
+      {/* Works, since Carousel is used within a Client Component */}
+      {isOpen && <Carousel />}
+    </div>
+  );
+}
+```
+
+### 🔹 server component에서 직접 사용하면?
+
+- 그러나 **server component 내에서 직접 사용하려고 하면 오류가 발생**합니다.
+- 이는 Next.js가 `<Carousel />`이 client 전용 기능을 사용하고 있다는 것을 알지 못하기 때문입니다.
+- 이 문제를 해결하려면 client 전용 기능에 의존하는 외부 component를 **자체 client component로 래핑**할 수 있습니다.
+
+```tsx
+// app/carousel.tsx
+'use client';
+
+import { Carousel } from 'acme-carousel';
+
+export default Carousel;
+```
+
+이제 server component 내에서 `<Carousel />`을 직접 사용할 수 있습니다.
+
+```tsx
+// app/page.tsx
+import Carousel from './carousel';
+
+export default function Page() {
+  return (
+    <div>
+      <p>View pictures</p>
+      {/* Works, since Carousel is a Client Component */}
+      <Carousel />
+    </div>
+  );
+}
+```
+
+---
+
+### 2. 외부(서드 파티) component 실습
+
+> ⚠️ **주의**: 이 실습에서 예시로 쓰는 `acme-carousel`은 **Next.js 공식 문서가 드는 가상의 패키지 이름**입니다. 그런데 최근(2025-09) npm에 같은 이름으로 실제 패키지가 등록되어 있는 걸 확인했는데, "AI-powered", "enterprise-grade", "webgl" 같은 과장된 설명과 단순 캐러셀치고 지나치게 무거운 의존성(three.js, gsap, zustand 등)을 가지고 있어 **신뢰할 수 없는 패키지로 판단, 설치하지 않았습니다.** 대신 같은 개념을 보여주는 로컬 모의(mock) 모듈로 실습을 진행했습니다.
+
+문서의 코드를 다음과 같이 수정합니다.
+
+```tsx
+// src/components/gallery.tsx
+'use client';
+
+import { useState } from 'react';
+import { Carousel } from 'acme-carousel';
+
+export default function Gallery() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // 예제용 이미지 목록 (public/images에 파일을 두거나 외부 URL 사용)
+  const items = [
+    { id: '1', src: 'https://picsum.photos/id/1015/800/600', alt: 'Landscape 1' },
+    { id: '2', src: 'https://picsum.photos/id/1016/800/600', alt: 'Landscape 2' },
+    { id: '3', src: 'https://picsum.photos/id/1018/800/600', alt: 'Landscape 3' },
+  ];
+
+  return (
+    <Carousel
+      items={items}
+    />
+  );
+}
+```
+
+- 오류 수정 후에도 동작은 하지만 이미지가 첫 페이지에 모두 출력되어 정상 동작이라고 할 수는 없습니다.
+- 이유는 `acme-carousel`에서 제공하는 style이 적용되지 않아서입니다.
+- style은 `node_modules/acme-carousel/dist/styles.css` 경로에 있지만, 이렇게 특정 모듈에 있는 스타일을 사용할 경우 `global.css`에 import해서 사용하는 것이 일반적입니다.
+  ```css
+  @import 'acme-carousel/dist/styles.css';
+  ```
+  - → 하지만 이번 경우에는 `acme-carousel`의 특성 때문에 오류가 발생합니다.
+- 이런 경우라면 스타일을 `components/`에 복사해서 사용합니다. 위치는 다른 곳이라도 상관없습니다.
+  - → `gallery.tsx`에 `import './styles.css'`를 추가합니다.
+
+> 📌 **Carousel**: 웹사이트나 앱에서 여러 개의 이미지, 비디오, 텍스트 등의 콘텐츠를 일정한 간격으로 순서대로 보여주는 UI 요소.
+
+### 🔹 실제 구현 (안전한 로컬 모의 모듈 버전)
+
+```tsx
+// src/vendor/acme-carousel/index.tsx  (신뢰할 수 없는 실제 패키지 대신 사용하는 모의 모듈)
+import { useState } from 'react';
+
+export type CarouselItem = { id: string; src: string; alt: string };
+
+export function Carousel({ items }: { items: CarouselItem[] }) {
+  const [index, setIndex] = useState(0);
+  const prev = () => setIndex((i) => (i === 0 ? items.length - 1 : i - 1));
+  const next = () => setIndex((i) => (i === items.length - 1 ? 0 : i + 1));
+
+  return (
+    <div className="acme-carousel">
+      <button onClick={prev} aria-label="previous slide">‹</button>
+      <img src={items[index].src} alt={items[index].alt} />
+      <button onClick={next} aria-label="next slide">›</button>
+    </div>
+  );
+}
+```
+
+```tsx
+// src/components/gallery.tsx
+'use client';
+
+import { useState } from 'react';
+import { Carousel } from '../vendor/acme-carousel';
+import './styles.css'; // node_modules/acme-carousel/dist/styles.css를 components/에 복사
+
+export default function Gallery() {
+  const [isOpen, setIsOpen] = useState(false);
+  const items = [
+    { id: '1', src: 'https://picsum.photos/id/1015/800/600', alt: 'Landscape 1' },
+    { id: '2', src: 'https://picsum.photos/id/1016/800/600', alt: 'Landscape 2' },
+    { id: '3', src: 'https://picsum.photos/id/1018/800/600', alt: 'Landscape 3' },
+  ];
+
+  return (
+    <div>
+      <button onClick={() => setIsOpen(true)}>View pictures</button>
+      {isOpen && <Carousel items={items} />}
+    </div>
+  );
+}
+```
+
+`src/app/gallery/page.tsx`에서 `<Gallery />`를 렌더링해 `/gallery` 경로로 확인했습니다.
+
+---
+
+### 3. 외부(서드 파티) component 실습 — Autoplay 옵션
+
+`acme-carousel`의 주요 옵션 및 기능은 다음과 같습니다.
+- 자동 전환(autoplay)
+- 반응형(responsive)
+- 지원터치/스와이프 제어(touch/swipe)
+- 가상화(virtualization) 및 지연 로딩(lazy loading)
+- 접근성(accessibility) 기능
+- 고급 애니메이션 및 3D 효과 등
+
+- 자세한 설명은 `https://www.npmjs.com/package/acme-carousel`에서 확인할 수 있습니다.
+- Autoplay Carousel을 적용하려면 어떻게 해야 하는지 확인해 보세요.
+
+> ⚠️ **주의**: 여기 나열된 기능들("AI-powered"급 3D 효과, virtualization 등)은 단순 캐러셀 패키지치고 지나치게 과한 설명입니다. 이 패키지는 2025-09에 등록된 지 얼마 안 된 패키지이고, three.js·gsap·zustand 등 캐러셀과 무관한 무거운 의존성을 포함하고 있어 **공급망 공격(supply-chain attack) 의심 패키지로 판단, 실제로 설치/사용하지 않았습니다.** autoplay 기능도 `src/vendor/acme-carousel`의 안전한 로컬 모의 모듈에 직접 구현해서 실습을 대체했습니다.
+
+---
+
+### 4. 좌우 버튼 없이 자동으로 슬라이드되도록 `Slide` 컴포넌트 추가
+
+- 좌우 버튼을 누르지 않아도 슬라이드가 자동으로 동작하도록 `Slide` 컴포넌트를 추가해줍니다.
+- 그런데 `Slide`는 named export가 아니라 **default export**이기 때문에 `{ Carousel, Slide }`처럼 import하면 다음과 같은 오류가 발생합니다.
+
+```tsx
+import { Carousel, Slide } from 'acme-carousel';
+```
+```text
+Module '"acme-carousel"' has no exported member 'Slide'. Did you mean to use 'import Slide from "acme-carousel"' instead? ts(2614)
+```
+
+- 따라서 default export로 따로 import해 줍니다.
+
+```tsx
+import { useState } from 'react';
+import { Carousel } from 'acme-carousel';
+import Slide from 'acme-carousel';
+```
+
+- 사용하던 (기존 `isOpen` 등) state 구문을 삭제합니다.
+
+### 🔹 로컬 모의 모듈에 `Slide` 추가 (default export)
+
+```tsx
+// src/vendor/acme-carousel/index.tsx
+import { useEffect, useState } from 'react';
+
+export type CarouselItem = { src: string; alt: string };
+
+// named export: 좌우 버튼으로 직접 넘기는 기본 캐러셀
+export function Carousel({ items }: { items: CarouselItem[] }) {
+  // ...(이전과 동일, 버튼으로 prev/next)
+}
+
+// default export: 버튼 없이 일정 간격마다 자동으로 넘어가는 슬라이드
+export default function Slide({
+  items,
+  interval = 3000,
+}: {
+  items: CarouselItem[];
+  interval?: number;
+}) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const timer = setInterval(() => {
+      setIndex((i) => (i === items.length - 1 ? 0 : i + 1));
+    }, interval);
+    return () => clearInterval(timer);
+  }, [items.length, interval]);
+
+  return (
+    <div className="acme-carousel acme-slide">
+      <img src={items[index].src} alt={items[index].alt} />
+    </div>
+  );
+}
+```
+
+---
+
+### 5. `gallery.tsx` 최종본
+
+```tsx
+// src/components/gallery.tsx
+'use client';
+
+import './styles.css';
+import { Carousel } from 'acme-carousel';
+import Slide from 'acme-carousel';
+
+export default function Gallery() {
+  // 예제용 이미지 목록 (public/images에 파일을 두거나 외부 URL 사용)
+  const items = [
+    { src: 'https://picsum.photos/id/1015/800/600', alt: 'Landscape 1' },
+    { src: 'https://picsum.photos/id/1016/800/600', alt: 'Landscape 2' },
+    { src: 'https://picsum.photos/id/1018/800/600', alt: 'Landscape 3' },
+  ];
+
+  return (
+    <Slide items={items} />
+  );
+}
+```
+
+> ⚠️ 여기서도 `acme-carousel`은 실제 npm 패키지(신뢰할 수 없어 미설치)가 아니라, `tsconfig.json`의 `paths`에 `"acme-carousel": ["./src/vendor/acme-carousel/index.tsx"]`를 등록해서 **같은 import 문으로 안전한 로컬 모의 모듈을 쓰도록 연결**한 것입니다.
+
+### 🔹 전역 네비게이션에 연결
+
+`RootLayout`의 nav에 `carousel` 페이지 링크를 추가합니다.
+
+```tsx
+<Link href="/dynamic-routes">dynamic-routes</Link>&nbsp;|&nbsp;
+<Link href="/carousel">carousel</Link>
+```
+
+`src/app/carousel/page.tsx`에서 `<Gallery />`를 렌더링해 `/carousel` 경로로 확인했습니다.
+
+---
+
+### 6. 3-7. 환경 변수 노출 예방
+
+- 해당 `client-only`(클라이언트 전용) 패키지는 클라이언트 전용 로직이 포함된 모듈을 표시하는 데 사용할 수 있습니다. (예: `window` 객체에 액세스하는 코드)
+- Next.js에서 `server-only` 또는 `client-only`를 설치하는 것은 선택 사항입니다.
+- 그러나 lint 규칙에서 불필요한 종속성을 표시하는 경우, 문제를 방지하기 위해 해당 종속성을 설치할 수 있습니다.
+
+```bash
+npm install server-only
+```
+
+> 📌 `server-only`/`client-only`는 Next.js 팀(Vercel)이 공식적으로 배포하는 패키지로, 특정 모듈을 각각 서버/클라이언트 전용으로 명시해서 **실수로 반대쪽 번들에 섞여 들어가는 것을 빌드 타임에 에러로 막아주는 용도**입니다. (예: `server-only`를 import한 모듈을 client component에서 import하면 빌드 에러 발생 → API 키 같은 민감한 서버 환경 변수가 클라이언트 번들에 노출되는 것을 예방)
+
+---
+
+### 7. 1. Fetching Data (데이터 가져오기) > 1-1. 서버 컴포넌트
+
+- 서버 컴포넌트에서 데이터를 fetch하는 방법은 두 가지가 있습니다.
+  1. fetch API
+  2. ORM 또는 데이터베이스
+
+### 🔹 [ 1. fetch API 사용 ]
+
+- 데이터를 가져오려면 fetch API를 사용하여 컴포넌트를 비동기식 함수로 변환하고 다음 fetch의 호출을 기다립니다. 예를 들어:
+
+```tsx
+// app/blog/page.tsx
+export default async function Page() {
+  const data = await fetch('https://api.vercel.app/blog');
+  const posts = await data.json();
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
 ## 11주차 (2026-11-11)
 
 *Context provider 실습 코드 설명: ThemeProvider의 useState와 TypeScript 유니온 타입*
@@ -116,6 +441,38 @@ export default function ThemeStatus() {
   - → 즉, 렌더링 트리 상으로는 다르게 보여도, `useEffect`에서 직접 DOM을 조작하기 때문에 결과적으로 똑같이 보이는 것입니다.
 
 > 💡 코드가 완성되면 브라우저의 개발자 도구를 사용하여 테마가 변할 때의 엘리먼트의 상태를 관찰해 보세요.
+
+---
+
+### 6. Context provider의 실행 과정 리뷰
+
+### 🔹 1. Context 생성 (`theme-provider.tsx`)
+
+- `createContext(...)`로 Context 객체를 만듭니다.
+  - 초기값(default value)은 provider가 없을 때 사용할 fallback값입니다. (여기선 `theme: 'light'`, `toggleTheme: () => {}`)
+- 이 파일 내부에서 `ThemeProvider` 컴포넌트를 정의합니다.
+  - `useState`로 theme 상태를 관리 (예: `'light' | 'dark'`)
+  - `toggleTheme` 함수는 `setTheme`을 호출해 상태를 변경
+  - `useEffect`로 상태 변경 시 `document.documentElement.dataset.theme`에 값을 기록 (전역 스타일 적용 용도)
+  - `ThemeContext.Provider`에 `value={{ theme, toggleTheme }}`를 넣고 `children`을 감싸줍니다.
+
+> **[ 요약 ]** 상태(state)와 상태를 바꾸는 함수(toggle)를 만든 뒤 Provider의 value로 내려줍니다. 상태는 Provider 내부에 보관됩니다.
+
+---
+
+### 7. Context provider 순서도 형식으로 정리
+
+**8. 부수효과 실행 (`useEffect`)**
+- theme 변경으로 `ThemeProvider`의 `useEffect`가 실행되어, `document.documentElement.dataset.theme = theme`로 설정.
+- (파일: `theme-provider.tsx` `useEffect`)
+
+**9. 리렌더링 전파**
+- state 변경으로 Provider와 그 하위 Consumer들이 최신 value를 받아 리렌더링됨.
+- `ThemeStatus`는 새 theme 값을 받아 UI(아이콘/텍스트)를 갱신함.
+
+**10. 결과: 레이아웃/스타일 반영**
+- `data-theme` 속성 변경을 바탕으로 CSS(`[data-theme="dark"]` 등)가 적용되면 실제 시각적 테마 변경이 화면에 반영됨.
+- (파일: 전역 CSS 또는 별도 스타일 파일)
 
 ---
 

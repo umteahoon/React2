@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "acme-carousel": ["./src/vendor/acme-carousel/index.tsx"]
     }
   },
   "include": [

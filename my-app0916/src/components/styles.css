@@ -1,0 +1,21 @@
+/* 모의 acme-carousel 패키지가 제공하는 스타일 (node_modules/acme-carousel/dist/styles.css 흉내) */
+.acme-carousel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 820px;
+}
+
+.acme-carousel img {
+  width: 800px;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.acme-carousel button {
+  font-size: 2rem;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
