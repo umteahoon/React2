@@ -1,6 +1,164 @@
 # React2 202230119 엄태훈
 
 
+## 13주차 (2026-11-25)
+
+### 1. 1. Fetching Data (데이터 가져오기) — 스트리밍 복습
+
+- 위의 예(`/blog/page.tsx`)에서 `<Posts>` 컴포넌트는 `<Suspense>` 안에 싸여 있습니다.
+- 즉, promise가 해결되는 동안 fallback이 표시됩니다.
+- 스트리밍에 대해 자세히 알아보세요.
+
+### 🔹 [ 코드 추가 설명 ]
+
+- line 3에서 `use`를 import합니다.
+- Promise로부터 받은 객체를 사용하기 위해 line 10에서 `use(posts)`를 사용하고 있습니다.
+
+### 2. Fetch의 이해
+
+- 실습한 코드에서 `fetch(url).then((res) => res.json())`이라는 부분이 있습니다.
+
+
+### 🔹 `fetch(url)`
+
+- `fetch()` 함수는 브라우저의 Fetch API로, HTTP 요청을 보낼 때 사용됩니다.
+- 기본적으로 GET 방식으로 요청을 수행합니다.
+- 첫 번째 인자로 요청(request)할 URL, 두 번째 인자로 요청 옵션을 전달합니다.
+- 옵션은 `method`, `headers`, `body` 등이 있습니다. (developer.mozilla.org)
+- `Promise<Response>` 객체를 반환합니다.
+- 응답이 도착하면 `then()`을 통해 결과를 처리합니다.
+- 성공적으로 응답이 도착하면 `resolve()` 함수가 호출됩니다.
+- Promise는 네트워크 요청이 완료되면 `resolve`(성공)됩니다.
+
+### 🔹 `.then((res) => ...)`
+
+- `fetch()`가 반환한 Promise 객체가 `.then()` 메서드를 가지고 있습니다.
+- Promise 객체가 resolve(성공)되면 `.then()`의 callback 함수가 실행됩니다.
+- 여기서 `res`는 서버에서 반환된 Promise 객체입니다.
+- Promise 객체는 `status`, `header`, `body` 등 HTTP 응답 전체를 포함합니다.
+- `res.ok`는 상태 코드가 200~299인지 불리언(Boolean)으로 알려줍니다.
+- `res.status`는 숫자로 알려줍니다. (예: 200, 404)
+- fetch와 마찬가지로 예외처리는 별도로 해야 합니다.
+
+```js
+function getPosts() {
+  return fetch('https://jsonplaceholder.typicode.com/posts').then((res) =>
+    res.json()
+  );
+}
+```
+
+### 3. 설명을 정리하면 다음과 같습니다
+
+| 구성 요소 | 소속 | 설명 | 예시 |
+| --- | --- | --- | --- |
+| `fetch()` | 전역 함수 (Web API) | HTTP 요청을 보내고 `Promise<Response>`를 반환 | `fetch(url)` |
+| `.then()` | Promise 메서드 | Promise가 완료되면 callback 실행 | `fetch(url).then(...)` |
+| `.json()` | Response 메서드 | Body를 JSON으로 변환하는 또 다른 Promise 반환 | `res.json()` |
+
+```tsx
+// app > blog > page.tsx
+import Posts from '@/components/posts';
+import { Suspense } from 'react';
+
+function getPosts() {
+  return fetch('https://jsonplaceholder.typicode.com/posts').then((res) =>
+    res.json()
+  );
+}
+
+export default function Page() {
+  // Don't await the data fetching function
+  // await를 사용하지 않고 Promise를 반환했습니다.
+  const posts = getPosts();
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  );
+}
+```
+
+### 4. Suspense Component란 무엇인가?
+
+- 비동기 작업 중에 UI의 일부를 일시적으로 대체 UI(fallback)로 보여주어 사용자 경험을 향상시키는 React 기능입니다. (예: 데이터 로딩, 컴포넌트 동적 임포트)
+
+### 🔹 [ Suspense의 핵심 기능 ]
+
+- 비동기 작업이 완료될 때까지 해당 컴포넌트 트리 렌더링을 일시 중지합니다.
+- 작업이 완료되면 실제 UI로 자동 전환합니다.
+- 비동기 로딩 중 보여 줄 fallback UI(로딩 인디케이터 등)를 지정할 수 있습니다.
+- `import`하여 사용합니다. `import { Suspense } from 'react'`
+- Suspense 내부에 여러 개의 컴포넌트가 있을 경우, 내부 컴포넌트 중 하나라도 로딩 중이면 fallback UI가 표시되고, 모든 작업이 완료되면 한번에 실제 UI가 노출됩니다.
+- 이 기능을 활용하면 여러 비동기 컴포넌트를 독립적으로 대기하거나, 병렬 로딩 상태를 효과적으로 관리할 수 있습니다.
+
+### 5. 제네릭(T)을 사용하여 반환 값의 타입을 명시적으로 지정
+
+- 오류를 수정하기 위해서는 다음과 같이 `url`의 타입만 명시하면 됩니다.
+
+```ts
+const fetcher = <T,>(url: string): Promise<T> => fetch(url).then((r) => r.json());
+```
+
+```tsx
+// src/app/blog2/page.tsx
+'use client';
+import useSWR from 'swr';
+import { Suspense } from 'react';
+
+const fetcher = <T,>(url: string): Promise<T> => fetch(url).then((r) => r.json());
+
+type Photo = {
+  id: string;
+  title: string;
+};
+
+export default function Blog2Page() {
+  const { data, error, isLoading } = useSWR<Photo[]>(
+    'https://jsonplaceholder.typicode.com/photos',
+    fetcher
+  );
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <>
+      <h1>Blog2 Page - Photo Titles</h1>
+      <ul>
+        <Suspense fallback="Loading posts...">
+          {data?.map((post: { id: string; title: string }) => (
+            <li key={post.id}>{post.title}</li>
+          ))}
+        </Suspense>
+      </ul>
+    </>
+  );
+}
+```
+
+### 6. 중복된 요청 제거 및 데이터 캐시
+
+- Next.js의 데이터 캐시를 사용하여 fetch 중복을 제거할 수도 있습니다. 예를 들어, fetch 옵션에서 `cache: 'force-cache'`를 설정합니다.
+- 데이터 캐시를 사용하면 현재 렌더 패스와 수신 요청에서 데이터를 공유할 수 있습니다.
+- fetch를 사용하지 않고 대신 ORM이나 데이터베이스를 직접 사용하는 경우 React 캐시 함수로 데이터 액세스를 래핑할 수 있습니다.
+  - 문서의 예제를 실행해 보기 위해서는 데이터베이스 연결이 필요합니다.
+
+```ts
+// app/lib/data.ts
+import { cache } from 'react';
+import { db, posts, eq } from '@/lib/db';
+
+export const getPost = cache(async (id: string) => {
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, parseInt(id)),
+  });
+});
+```
+
+---
+
 ## 12주차 (2026-11-18)
 
 
