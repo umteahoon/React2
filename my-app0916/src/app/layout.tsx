@@ -25,7 +25,8 @@ export default function RootLayout({
               <Link href="/routing">routing</Link>&nbsp;|&nbsp;
               <Link href="/ssr-ssg">ssr-sge</Link>&nbsp;|&nbsp;
               <Link href="/dynamic-routes">dynamic-routes</Link>&nbsp;|&nbsp;
-              <Link href="/carousel">carousel</Link>
+              <Link href="/carousel">carousel</Link>&nbsp;|&nbsp;
+              <Link href="/posts">posts</Link>
               <br />
             </nav>
             <ThemeStatus />
